@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: TaskFlow-config
+  namespace: taskflow-staging
+data:
+  APP_ENV: "staging"
+  APP_VERSION: "latest"
+  PORT: "3000"
