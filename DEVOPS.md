@@ -60,7 +60,7 @@ Cette politique redémarre automatiquement les services s’ils plantent, ce qui
 - avec `on-failure`, il redémarre uniquement si le conteneur s’est arrêté sur une erreur ;
 - avec `always`, il redémarre dans tous les cas, même après un arrêt manuel.
 
-# Mini doc CI/CD - Jobs actuels
+# Partie 2 CI/CD - Jobs actuels - Choix 3
 
 Ce document résume les jobs définis dans `.github/workflows/ci.yml`.
 
@@ -194,3 +194,23 @@ Le job `build` actuel ne s'exécute que sur les tags commençant par `v`. Par co
 - `audit-report` (job `audit`)
 - `trivy-report` (job `build`, image backend)
 - `trivy-report-frontend` (job `build`, image frontend)
+
+# Partie 3 Kubernetes Choix 4
+
+## Choix 4 — Nombre de replicas
+
+Nous avons choisi :
+
+- 2 replicas en staging
+- 3 replicas en production
+
+### Justification pour le staging
+Le staging sert à tester les déploiements.
+Avec 2 replicas, nous pouvons remplacer un pod sans rendre l’application totalement indisponible.  
+Avec 1 replica seulement, un rolling update avec `maxUnavailable: 1` peut provoquer une interruption de service, car l’unique pod peut être retiré avant que le nouveau soit prêt.  
+
+### Justification pour la production
+Nous avons choisi 3 replicas en production, car le sujet demande au minimum 3 replicas sur cet environnement.  
+Ce choix améliore la disponibilité de l’application, permet une meilleure tolérance aux pannes.
+Si un pod tombe, l’application reste accessible grâce aux autres replicas.
+
