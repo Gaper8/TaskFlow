@@ -105,4 +105,3 @@ Avec 1 replica seulement, un rolling update avec `maxUnavailable: 1` peut provoq
 Nous avons choisi 3 replicas en production, car le sujet demande au minimum 3 replicas sur cet environnement.  
 Ce choix améliore la disponibilité de l’application, permet une meilleure tolérance aux pannes.
 Si un pod tombe, l’application reste accessible grâce aux autres replicas.
-
