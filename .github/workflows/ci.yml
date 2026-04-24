@@ -21,7 +21,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Installer les dépendances
-        run: cd frontend && npm install
+        run: cd backend && npm install
 
       - name: Lancer les tests
-        run: cd frontend && npm test
+        run: cd backend && npm test
