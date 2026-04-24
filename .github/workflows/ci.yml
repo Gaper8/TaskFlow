@@ -7,8 +7,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-  env:
-      REDIS_URL: ${{ secrets.REDIS_URL }}
 
     strategy:
       matrix:
