@@ -1,0 +1,52 @@
+services:
+  cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: ${PORT}
+      APP_ENV: ${APP_ENV}
+      APP_VERSION: ${APP_VERSION}
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "3001:3001"
+    depends_on:
+      cache:
+        condition: service_healthy
+    networks:
+      - internal
+      - public
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - public
+
+volumes:
+  redis_data:
+
+networks:
+  internal:
+  public:
