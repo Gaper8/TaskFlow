@@ -135,3 +135,158 @@ jobs:
       - name: Push image
         run: |
             docker push ${{ secrets.DOCKER_USERNAME }}/stockalert:${{ steps.vars.outputs.tag }}
+
+  deploy-staging:
+    name: Deploy Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    env:
+      K8S_NAMESPACE: staging
+      K8S_DEPLOYMENT: stockalert
+      K8S_CONTAINER: stockalert
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Configurer kubeconfig (staging)
+        shell: bash
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_STAGING }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          if echo "$KUBECONFIG_CONTENT" | base64 -d > "$HOME/.kube/config" 2>/dev/null; then
+            echo "kubeconfig staging décodé depuis base64"
+          else
+            printf '%s' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+            echo "kubeconfig staging utilisé en brut"
+          fi
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Mettre à jour le Deployment
+        shell: bash
+        run: |
+          kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT" \
+            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/stockalert:$IMAGE_TAG"
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    env:
+      K8S_NAMESPACE: staging
+      K8S_DEPLOYMENT: stockalert
+      K8S_SERVICE: stockalert
+      LOCAL_PORT: 18080
+      SERVICE_PORT: 80
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Configurer kubeconfig (staging)
+        shell: bash
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_STAGING }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          if echo "$KUBECONFIG_CONTENT" | base64 -d > "$HOME/.kube/config" 2>/dev/null; then
+            echo "kubeconfig staging décodé depuis base64"
+          else
+            printf '%s' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+            echo "kubeconfig staging utilisé en brut"
+          fi
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Attendre rollout Ready
+        shell: bash
+        run: |
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/"$K8S_DEPLOYMENT" --timeout=180s
+
+      - name: Vérifier GET /health
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl -n "$K8S_NAMESPACE" port-forward service/"$K8S_SERVICE" "$LOCAL_PORT":"$SERVICE_PORT" >/tmp/port-forward.log 2>&1 &
+          PF_PID=$!
+          cleanup() {
+            kill "$PF_PID" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for i in $(seq 1 10); do
+            if curl -sS "http://127.0.0.1:$LOCAL_PORT/health" >/tmp/health.json; then
+              break
+            fi
+            sleep 2
+          done
+
+          HTTP_CODE=$(curl -sS -o /tmp/health.json -w "%{http_code}" "http://127.0.0.1:$LOCAL_PORT/health")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Réponse HTTP inattendue: $HTTP_CODE"
+            cat /tmp/health.json || true
+            exit 1
+          fi
+
+          if ! grep -q '"status"[[:space:]]*:[[:space:]]*"ok"' /tmp/health.json; then
+            echo "Le payload /health ne contient pas status: ok"
+            cat /tmp/health.json || true
+            exit 1
+          fi
+
+          echo "Smoke test validé: /health = 200 et status ok"
+
+  deploy-production:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      K8S_NAMESPACE: production
+      K8S_DEPLOYMENT: stockalert
+      K8S_CONTAINER: stockalert
+      IMAGE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Configurer kubeconfig (production)
+        shell: bash
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_PRODUCTION }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          if echo "$KUBECONFIG_CONTENT" | base64 -d > "$HOME/.kube/config" 2>/dev/null; then
+            echo "kubeconfig production décodé depuis base64"
+          else
+            printf '%s' "$KUBECONFIG_CONTENT" > "$HOME/.kube/config"
+            echo "kubeconfig production utilisé en brut"
+          fi
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Mettre à jour le Deployment
+        shell: bash
+        run: |
+          kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT" \
+            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/stockalert:$IMAGE_TAG"
+
+      - name: Attendre rollout Ready
+        shell: bash
+        run: |
+          kubectl -n "$K8S_NAMESPACE" rollout status deployment/"$K8S_DEPLOYMENT" --timeout=180s
