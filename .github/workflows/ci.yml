@@ -1,0 +1,27 @@
+name: TaskFlow
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Installer les dépendances
+        run: cd frontend && npm install
+
+      - name: Lancer les tests
+        run: cd frontend && npm test
