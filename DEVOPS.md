@@ -112,7 +112,7 @@ Ce document résume les jobs définis dans `.github/workflows/ci.yml`.
 
 ## Job `build` (Build, Scan & Push)
 
-**Objectif**: construire l'image Docker, scanner la sécurité, puis pousser l'image.
+**Objectif**: construire les images Docker backend et frontend, scanner leur sécurité, puis pousser les deux images.
 
 - Runner: `ubuntu-latest`
 - Dépendances: `needs: [test, lint]`
@@ -122,13 +122,19 @@ Ce document résume les jobs définis dans `.github/workflows/ci.yml`.
 - Étapes:
 	- Checkout du dépôt
 	- Lecture du tag Git dans une variable de sortie (`steps.vars.outputs.tag`)
-	- Build de l'image Docker taggée
-	- Scan Trivy avec rapport JSON (`trivy-report.json`)
+	- Build de l'image backend depuis `backend/Dockerfile`
+	- Build de l'image frontend depuis `frontend/Dockerfile`
+	- Scan Trivy backend avec rapport JSON (`trivy-report.json`)
 		- Étape en `continue-on-error: true` pour toujours publier le rapport
 	- Upload de l'artifact `trivy-report`
-	- Échec si vulnérabilités `CRITICAL`
+	- Échec si vulnérabilités `CRITICAL` sur l'image backend
+	- Scan Trivy frontend avec rapport JSON (`trivy-report-frontend.json`)
+		- Étape en `continue-on-error: true` pour toujours publier le rapport
+	- Upload de l'artifact `trivy-report-frontend`
+	- Échec si vulnérabilités `CRITICAL` sur l'image frontend
 	- Login Docker Hub via secrets GitHub Actions
-	- Push de l'image Docker sur Docker Hub
+	- Push de l'image backend sur Docker Hub
+	- Push de l'image frontend sur Docker Hub
 
 ## Jobs Kubernetes (préparation à la mise en production)
 
@@ -186,4 +192,5 @@ Le job `build` actuel ne s'exécute que sur les tags commençant par `v`. Par co
 ## Artifacts générés
 
 - `audit-report` (job `audit`)
-- `trivy-report` (job `build`)
+- `trivy-report` (job `build`, image backend)
+- `trivy-report-frontend` (job `build`, image frontend)

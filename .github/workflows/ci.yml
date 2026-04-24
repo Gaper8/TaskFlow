@@ -99,7 +99,16 @@ jobs:
       - name: Builder l'image Docker
         run: |
             docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/stockalert:${{ steps.vars.outputs.tag }} .
+            -f backend/Dockerfile \
+            -t ${{ secrets.DOCKER_USERNAME }}/taskflow:${{ steps.vars.outputs.tag }} \
+            backend
+
+      - name: Builder l'image Docker frontend
+        run: |
+            docker build \
+            -f frontend/Dockerfile \
+            -t ${{ secrets.DOCKER_USERNAME }}/taskflow-frontend:${{ steps.vars.outputs.tag }} \
+            frontend
 
       - name: Scan Trivy (rapport JSON)
         run: |
@@ -109,7 +118,7 @@ jobs:
             aquasec/trivy image \
             --format json \
             --output /workspace/trivy-report.json \
-            ${{ secrets.DOCKER_USERNAME }}/stockalert:${{ steps.vars.outputs.tag }}
+            ${{ secrets.DOCKER_USERNAME }}/taskflow:${{ steps.vars.outputs.tag }}
         continue-on-error: true
 
       - name: Upload rapport Trivy
@@ -125,7 +134,33 @@ jobs:
             aquasec/trivy image \
             --severity CRITICAL \
             --exit-code 1 \
-            ${{ secrets.DOCKER_USERNAME }}/stockalert:${{ steps.vars.outputs.tag }}
+            ${{ secrets.DOCKER_USERNAME }}/taskflow:${{ steps.vars.outputs.tag }}
+
+      - name: Scan Trivy frontend (rapport JSON)
+        run: |
+            docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:/workspace \
+            aquasec/trivy image \
+            --format json \
+            --output /workspace/trivy-report-frontend.json \
+            ${{ secrets.DOCKER_USERNAME }}/taskflow-frontend:${{ steps.vars.outputs.tag }}
+        continue-on-error: true
+
+      - name: Upload rapport Trivy frontend
+        uses: actions/upload-artifact@v4
+        with:
+            name: trivy-report-frontend
+            path: trivy-report-frontend.json
+
+      - name: Fail si vulnérabilités CRITICAL frontend
+        run: |
+            docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image \
+            --severity CRITICAL \
+            --exit-code 1 \
+            ${{ secrets.DOCKER_USERNAME }}/taskflow-frontend:${{ steps.vars.outputs.tag }}
 
       - name: Login Docker Hub
         run: |
@@ -134,7 +169,11 @@ jobs:
 
       - name: Push image
         run: |
-            docker push ${{ secrets.DOCKER_USERNAME }}/stockalert:${{ steps.vars.outputs.tag }}
+            docker push ${{ secrets.DOCKER_USERNAME }}/taskflow:${{ steps.vars.outputs.tag }}
+
+      - name: Push image frontend
+        run: |
+            docker push ${{ secrets.DOCKER_USERNAME }}/taskflow-frontend:${{ steps.vars.outputs.tag }}
 
   deploy-staging:
     name: Deploy Staging
@@ -143,8 +182,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     env:
       K8S_NAMESPACE: staging
-      K8S_DEPLOYMENT: stockalert
-      K8S_CONTAINER: stockalert
+      K8S_DEPLOYMENT: taskflow
+      K8S_CONTAINER: taskflow
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
@@ -173,7 +212,7 @@ jobs:
         shell: bash
         run: |
           kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT" \
-            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/stockalert:$IMAGE_TAG"
+            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/taskflow:$IMAGE_TAG"
 
   smoke-test:
     name: Smoke Test
@@ -182,8 +221,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     env:
       K8S_NAMESPACE: staging
-      K8S_DEPLOYMENT: stockalert
-      K8S_SERVICE: stockalert
+      K8S_DEPLOYMENT: taskflow
+      K8S_SERVICE: taskflow
       LOCAL_PORT: 18080
       SERVICE_PORT: 80
 
@@ -254,8 +293,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     env:
       K8S_NAMESPACE: production
-      K8S_DEPLOYMENT: stockalert
-      K8S_CONTAINER: stockalert
+      K8S_DEPLOYMENT: taskflow
+      K8S_CONTAINER: taskflow
       IMAGE_TAG: ${{ github.ref_name }}
 
     steps:
@@ -284,7 +323,7 @@ jobs:
         shell: bash
         run: |
           kubectl -n "$K8S_NAMESPACE" set image deployment/"$K8S_DEPLOYMENT" \
-            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/stockalert:$IMAGE_TAG"
+            "$K8S_CONTAINER"="${{ secrets.DOCKER_USERNAME }}/taskflow:$IMAGE_TAG"
 
       - name: Attendre rollout Ready
         shell: bash
