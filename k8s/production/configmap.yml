@@ -5,5 +5,6 @@ metadata:
   namespace: taskflow-production
 data:
   APP_ENV: "production"
-  APP_VERSION: "v1.0.0"
-  PORT: "3000"
+  APP_VERSION: "v1.0.1"
+  PORT: "3001"
+  REDIS_URL: "redis://cache:6379"
