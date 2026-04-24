@@ -194,3 +194,5 @@ Le job `build` actuel ne s'exécute que sur les tags commençant par `v`. Par co
 - `audit-report` (job `audit`)
 - `trivy-report` (job `build`, image backend)
 - `trivy-report-frontend` (job `build`, image frontend)
+
+test
