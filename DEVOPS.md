@@ -60,9 +60,6 @@ Cette politique redémarre automatiquement les services s’ils plantent, ce qui
 - avec `on-failure`, il redémarre uniquement si le conteneur s’est arrêté sur une erreur ;
 - avec `always`, il redémarre dans tous les cas, même après un arrêt manuel.
 
-
-
-
 # Mini doc CI/CD - Jobs actuels
 
 Ce document résume les jobs définis dans `.github/workflows/ci.yml`.
