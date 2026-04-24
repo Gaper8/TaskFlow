@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: TaskFlow-config
+  name: taskflow-staging
   namespace: taskflow-staging
 data:
   APP_ENV: "staging"
