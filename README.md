@@ -115,3 +115,6 @@ Valeurs `priority` : `low` · `medium` · `high`
 
 Ce projet est la base du projet final DevOps — Bachelor 3 Développement.  
 Votre mission : le containeriser, automatiser sa livraison, et le déployer sur Kubernetes.
+
+aa
+
